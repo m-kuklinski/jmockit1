@@ -43,6 +43,21 @@ public final class Startup
          instrumentation = inst;
          initialize(inst);
       }
+
+      final Set<Thread> currentThreads = Thread.getAllStackTraces().keySet();
+
+      for (final Thread thread : currentThreads) {
+         try {
+            final ClassLoader clsLoader = thread.getContextClassLoader();
+            final Class<?> cls = (clsLoader == null) ? null : clsLoader.loadClass(Startup.class.getName());
+            final Field instField = cls.getDeclaredField(instrumentationFieldName);
+            if (instField != null) {
+               instField.setAccessible(true);
+               instField.set(null, inst);
+               instField.setAccessible(false);
+            }
+         } catch (Throwable ignore) {}
+      }
    }
 
    private static void initialize(@Nonnull Instrumentation inst) {

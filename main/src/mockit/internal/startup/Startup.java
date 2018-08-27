@@ -6,8 +6,6 @@ package mockit.internal.startup;
 
 import java.io.*;
 import java.lang.instrument.*;
-import java.lang.reflect.*;
-import java.util.*;
 import javax.annotation.*;
 
 import mockit.coverage.*;
@@ -25,8 +23,7 @@ import static mockit.internal.startup.ClassLoadingBridgeFields.createSyntheticFi
 public final class Startup
 {
    public static boolean initializing;
-   @Nullable private static volatile Instrumentation instrumentation;
-   private static final String instrumentationFieldName = "instrumentation";
+   @Nullable private static Instrumentation instrumentation;
 
    private Startup() {}
 
@@ -62,38 +59,6 @@ public final class Startup
       }
       finally {
          initializing = false;
-      }
-   }
-
-   /**
-    * This method must only be called by the JVM, to provide the instrumentation object.
-    * This occurs only when the JMockit Java agent gets loaded on demand, through the Attach API.
-    * <p/>
-    * For additional details, see the {@link #premain(String, Instrumentation)} method.
-    *
-    * @param agentArgs not used
-    * @param inst      the instrumentation service provided by the JVM
-    */
-   public static void agentmain(@Nullable String agentArgs, @Nonnull Instrumentation inst) {
-      if (!inst.isRedefineClassesSupported()) {
-         throw new UnsupportedOperationException("This JRE must be started in debug mode, or with -javaagent:<proper path>/jmockit.jar");
-      }
-
-      activateCodeCoverageIfRequested(agentArgs, inst);
-
-      final Set<Thread> currentThreads = Thread.getAllStackTraces().keySet();
-
-      for (final Thread thread : currentThreads) {
-         try {
-            final ClassLoader clsLoader = thread.getContextClassLoader();
-            final Class<?> cls = (clsLoader == null) ? null : clsLoader.loadClass(Startup.class.getName());
-            final Field instField = cls.getDeclaredField(instrumentationFieldName);
-            if (instField != null) {
-               instField.setAccessible(true);
-               instField.set(null, inst);
-               instField.setAccessible(false);
-            }
-         } catch (Throwable ignore) {}
       }
    }
 

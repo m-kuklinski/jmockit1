@@ -2,7 +2,7 @@
  * Copyright (c) 2006 JMockit developers
  * This file is subject to the terms of the MIT license (see LICENSE.txt).
  */
-package mockit.integration.junit4.internal;
+package mockit.integration.junit4;
 
 import java.lang.reflect.*;
 import javax.annotation.*;
@@ -10,7 +10,7 @@ import javax.annotation.*;
 import org.junit.*;
 import org.junit.runners.model.*;
 
-import mockit.integration.internal.*;
+import mockit.integration.*;
 import mockit.internal.expectations.*;
 import mockit.internal.faking.*;
 import mockit.internal.state.*;
@@ -21,6 +21,7 @@ final class JUnit4TestRunnerDecorator extends TestRunnerDecorator
    @Nullable
    Object invokeExplosively(@Nonnull FakeInvocation invocation, @Nullable Object target, Object... params) throws Throwable {
       FrameworkMethod it = invocation.getInvokedInstance();
+      assert it != null;
 
       // A @BeforeClass/@AfterClass method:
       if (target == null) {
@@ -82,6 +83,7 @@ final class JUnit4TestRunnerDecorator extends TestRunnerDecorator
    @Nullable
    private static Object executeClassMethod(@Nonnull FakeInvocation inv, @Nonnull Object[] params) throws Throwable {
       FrameworkMethod method = inv.getInvokedInstance();
+      assert method != null;
       handleMockingOutsideTests(method);
 
       TestRun.clearCurrentTestInstance();
@@ -94,7 +96,7 @@ final class JUnit4TestRunnerDecorator extends TestRunnerDecorator
       discardTestLevelMockedTypes();
       prepareForNextTest();
       shouldPrepareForNextTest = false;
-      createInstancesForTestedFields(target, true);
+      createInstancesForTestedFieldsBeforeSetup(target);
    }
 
    private static void handleMockingOutsideTests(@Nonnull FrameworkMethod it) {
@@ -139,6 +141,7 @@ final class JUnit4TestRunnerDecorator extends TestRunnerDecorator
       TestRun.setRunningIndividualTest(testInstance);
 
       FrameworkMethod it = invocation.getInvokedInstance();
+      assert it != null;
       Method testMethod = it.getMethod();
       Throwable testFailure = null;
       boolean testFailureExpected = false;
@@ -146,7 +149,7 @@ final class JUnit4TestRunnerDecorator extends TestRunnerDecorator
       try {
          createInstancesForTestedFieldsFromBaseClasses(testInstance);
          Object[] annotatedParameters = createInstancesForAnnotatedParameters(testInstance, testMethod, parameters);
-         createInstancesForTestedFields(testInstance, false);
+         createInstancesForTestedFields(testInstance);
 
          invocation.prepareToProceedFromNonRecursiveMock();
 

@@ -84,10 +84,10 @@ public final class RecordAndReplayExecution
             targetClasses.addAll(paramTypeRedefinitions.getTargetClasses());
          }
 
-         executionState.discoverMockedTypesToMatchOnInstances(targetClasses);
+         executionState.instanceBasedMatching.discoverMockedTypesToMatchOnInstances(targetClasses);
 
          if (dynamicPartialMocking != null && !dynamicPartialMocking.targetInstances.isEmpty()) {
-            executionState.setDynamicMockInstancesToMatch(dynamicPartialMocking.targetInstances);
+            executionState.partiallyMockedInstances = new PartiallyMockedInstances(dynamicPartialMocking.targetInstances);
          }
       }
    }

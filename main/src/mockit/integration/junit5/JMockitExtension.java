@@ -11,7 +11,7 @@ import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.*;
 
 import mockit.*;
-import mockit.integration.internal.*;
+import mockit.integration.*;
 import mockit.internal.expectations.*;
 import mockit.internal.state.*;
 import static mockit.internal.util.StackTrace.*;
@@ -72,7 +72,7 @@ final class JMockitExtension extends TestRunnerDecorator implements
 
       try {
          savePointForTest = new SavePoint();
-         createInstancesForTestedFields(testInstance, true);
+         createInstancesForTestedFieldsBeforeSetup(testInstance);
       }
       finally {
          TestRun.exitNoMockingZone();
@@ -94,7 +94,7 @@ final class JMockitExtension extends TestRunnerDecorator implements
          savePointForTestMethod = new SavePoint();
          createInstancesForTestedFieldsFromBaseClasses(testInstance);
          parameterValues = createInstancesForAnnotatedParameters(testInstance, testMethod, null);
-         createInstancesForTestedFields(testInstance, false);
+         createInstancesForTestedFields(testInstance);
       }
       finally {
          TestRun.exitNoMockingZone();

@@ -20,7 +20,7 @@ public final class TestedClassInstantiations
    private static final int METHOD_ACCESS_MASK = Access.BRIDGE + Access.VARARGS + Access.NATIVE + Access.ABSTRACT + Access.SYNTHETIC;
 
    @Nonnull private final List<TestedField> testedFields;
-   @Nonnull private final List<MockedType> injectableFields;
+   @Nonnull private final List<InjectionProvider> injectableFields;
    @Nonnull final InjectionState injectionState;
 
    public TestedClassInstantiations() {
@@ -68,7 +68,7 @@ public final class TestedClassInstantiations
    private void addAsTestedOrInjectableFieldIfApplicable(@Nonnull Field fieldFromTestClass) {
       for (Annotation fieldAnnotation : fieldFromTestClass.getDeclaredAnnotations()) {
          if (fieldAnnotation instanceof Injectable) {
-            MockedType mockedType = new MockedType(fieldFromTestClass);
+            InjectionProvider mockedType = new MockedType(fieldFromTestClass);
             injectableFields.add(mockedType);
             break;
          }
@@ -115,7 +115,7 @@ public final class TestedClassInstantiations
    }
 
    public void assignNewInstancesToTestedFieldsFromBaseClasses(@Nonnull Object testClassInstance) {
-      injectionState.buildListOfInjectableFields(testClassInstance, injectableFields);
+      injectionState.setInjectables(testClassInstance, injectableFields);
 
       Class<?> testClass = testClassInstance.getClass();
 
@@ -126,8 +126,17 @@ public final class TestedClassInstantiations
       }
    }
 
-   public void assignNewInstancesToTestedFields(@Nonnull Object testClassInstance, boolean beforeSetup) {
-      injectionState.buildListsOfInjectables(testClassInstance, injectableFields);
+   public void assignNewInstancesToTestedFields(
+      @Nonnull Object testClassInstance, boolean beforeSetup, @Nonnull List<? extends InjectionProvider> injectableParameters
+   ) {
+      List<InjectionProvider> injectables = injectableFields;
+
+      if (!injectableParameters.isEmpty()) {
+         injectables = new ArrayList<>(injectables);
+         injectables.addAll(injectableParameters);
+      }
+
+      injectionState.setInjectables(testClassInstance, injectables);
 
       for (TestedField testedField : testedFields) {
          if (!beforeSetup || testedField.isAvailableDuringSetup()) {

@@ -2,9 +2,10 @@
  * Copyright (c) 2006 JMockit developers
  * This file is subject to the terms of the MIT license (see LICENSE.txt).
  */
-package mockit.integration.internal;
+package mockit.integration;
 
 import java.lang.reflect.*;
+import java.util.*;
 import javax.annotation.*;
 
 import mockit.internal.expectations.*;
@@ -171,14 +172,36 @@ public class TestRunnerDecorator
       }
    }
 
-   protected static void createInstancesForTestedFields(@Nonnull Object testClassInstance, boolean beforeSetup) {
+   protected static void createInstancesForTestedFieldsBeforeSetup(@Nonnull Object testClassInstance) {
       TestedClassInstantiations testedClasses = TestRun.getTestedClassInstantiations();
 
       if (testedClasses != null) {
          TestRun.enterNoMockingZone();
 
          try {
-            testedClasses.assignNewInstancesToTestedFields(testClassInstance, beforeSetup);
+            testedClasses.assignNewInstancesToTestedFields(testClassInstance, true, Collections.<InjectionProvider>emptyList());
+         }
+         finally {
+            TestRun.exitNoMockingZone();
+         }
+      }
+   }
+
+   protected static void createInstancesForTestedFields(@Nonnull Object testClassInstance) {
+      TestedClassInstantiations testedClasses = TestRun.getTestedClassInstantiations();
+
+      if (testedClasses != null) {
+         List<? extends InjectionProvider> injectableParameters = Collections.emptyList();
+         ParameterTypeRedefinitions paramTypeRedefs = TestRun.getExecutingTest().getParameterRedefinitions();
+
+         if (paramTypeRedefs != null) {
+            injectableParameters = paramTypeRedefs.getInjectableParameters();
+         }
+
+         TestRun.enterNoMockingZone();
+
+         try {
+            testedClasses.assignNewInstancesToTestedFields(testClassInstance, false, injectableParameters);
          }
          finally {
             TestRun.exitNoMockingZone();
@@ -210,7 +233,8 @@ public class TestRunnerDecorator
          TestRun.getExecutingTest().setParameterRedefinitions(redefinitions);
 
          TestedParameters testedParameters = new TestedParameters(methodInfo);
-         testedParameters.createTestedParameters(testClassInstance, redefinitions);
+         List<? extends InjectionProvider> injectableParameters = redefinitions.getInjectableParameters();
+         testedParameters.createTestedParameters(testClassInstance, injectableParameters);
       }
       finally {
          TestRun.exitNoMockingZone();

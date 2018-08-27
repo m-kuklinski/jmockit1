@@ -26,11 +26,19 @@ public final class BeanExporter
    public <T> T getBean(@Nonnull Class<T> beanType) {
       TestedClass testedClass = new TestedClass(beanType, beanType);
       String beanName = getBeanNameFromType(beanType);
+
+      injectionState.setTypeOfInjectionPoint(beanType);
+      InjectionProvider injectable = injectionState.findInjectableByTypeAndName(beanName, testedClass);
+
+      if (injectable != null) {
+         @SuppressWarnings("unchecked") T bean = (T) injectionState.getValueToInject(injectable);
+         return bean;
+      }
+
       FullInjection injection = new FullInjection(injectionState, beanType, beanName);
       Injector injector = new FieldInjection(injectionState, injection);
 
-      @SuppressWarnings("unchecked")
-      T bean = (T) injection.createOrReuseInstance(testedClass, injector, null, beanName);
+      @SuppressWarnings("unchecked") T bean = (T) injection.createOrReuseInstance(testedClass, injector, null, beanName);
       return bean;
    }
 

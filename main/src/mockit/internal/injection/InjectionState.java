@@ -10,11 +10,8 @@ import java.util.Map.*;
 import java.util.concurrent.*;
 import javax.annotation.*;
 import javax.inject.*;
-import javax.servlet.*;
 
-import mockit.internal.expectations.mocking.*;
 import mockit.internal.reflection.*;
-import mockit.internal.state.*;
 import static mockit.internal.injection.InjectionPoint.*;
 import static mockit.internal.util.Utilities.getClassType;
 
@@ -28,7 +25,7 @@ public final class InjectionState
 
    @Nonnull private final Map<InjectionPoint, Object> testedObjects;
    @Nonnull private final Map<InjectionPoint, Object> instantiatedDependencies;
-   @Nonnull private List<MockedType> injectables;
+   @Nonnull private List<InjectionProvider> injectables;
    @Nonnull private List<InjectionProvider> consumedInjectionProviders;
    @Nonnull public final LifecycleMethods lifecycleMethods;
    @Nonnull final InterfaceResolution interfaceResolution;
@@ -45,7 +42,7 @@ public final class InjectionState
       interfaceResolution = new InterfaceResolution();
    }
 
-   boolean setInjectables(@Nonnull List<MockedType> injectables) {
+   boolean setInjectables(@Nonnull List<? extends InjectionProvider> injectables) {
       if (injectables.isEmpty()) {
          this.injectables = Collections.emptyList();
          return false;
@@ -55,53 +52,27 @@ public final class InjectionState
       return true;
    }
 
-   void buildListOfInjectableFields(@Nonnull Object testClassInstance, @Nonnull List<MockedType> injectables) {
+   void setInjectables(@Nonnull Object testClassInstance, @Nonnull List<? extends InjectionProvider> injectables) {
       currentTestClassInstance = testClassInstance;
       setInjectables(injectables);
-      getServletConfigForInitMethodsIfAny(testClassInstance);
+      lifecycleMethods.getServletConfigForInitMethodsIfAny(injectables, testClassInstance);
    }
 
-   void buildListsOfInjectables(@Nonnull Object testClassInstance, @Nonnull List<MockedType> injectables) {
+   void addInjectables(@Nonnull Object testClassInstance, @Nonnull List<? extends InjectionProvider> injectablesToAdd) {
       currentTestClassInstance = testClassInstance;
-      setInjectables(injectables);
-
-      ParameterTypeRedefinitions paramTypeRedefs = TestRun.getExecutingTest().getParameterRedefinitions();
-
-      if (paramTypeRedefs != null) {
-         addInjectables(paramTypeRedefs);
-      }
-
-      getServletConfigForInitMethodsIfAny(testClassInstance);
+      addInjectables(injectablesToAdd);
+      lifecycleMethods.getServletConfigForInitMethodsIfAny(injectables, testClassInstance);
    }
 
-   private void addInjectables(@Nonnull ParameterTypeRedefinitions paramTypeRedefs) {
-      List<MockedType> injectableParameters = paramTypeRedefs.getInjectableParameters();
-
-      if (!injectableParameters.isEmpty()) {
+   private void addInjectables(@Nonnull List<? extends InjectionProvider> injectablesToAdd) {
+      if (!injectablesToAdd.isEmpty()) {
          if (injectables.isEmpty()) {
-            injectables = new ArrayList<>(injectableParameters);
+            injectables = new ArrayList<>(injectablesToAdd);
          }
          else {
-            injectables.addAll(injectableParameters);
+            injectables.addAll(injectablesToAdd);
          }
       }
-   }
-
-   private void getServletConfigForInitMethodsIfAny(@Nonnull Object testClassInstance) {
-      if (SERVLET_CLASS != null) {
-         for (InjectionProvider injectable : injectables) {
-            if (injectable.getDeclaredType() == ServletConfig.class) {
-               lifecycleMethods.servletConfig = injectable.getValue(testClassInstance);
-               break;
-            }
-         }
-      }
-   }
-
-   void buildListsOfInjectables(@Nonnull Object testClassInstance, @Nonnull ParameterTypeRedefinitions paramTypeRedefs) {
-      currentTestClassInstance = testClassInstance;
-      addInjectables(paramTypeRedefs);
-      getServletConfigForInitMethodsIfAny(testClassInstance);
    }
 
    Object getCurrentTestClassInstance() { return currentTestClassInstance; }
@@ -138,8 +109,8 @@ public final class InjectionState
    }
 
    @Nullable
-   public MockedType findNextInjectableForInjectionPoint(@Nonnull TestedClass testedClass) {
-      for (MockedType injectable : injectables) {
+   public InjectionProvider findNextInjectableForInjectionPoint(@Nonnull TestedClass testedClass) {
+      for (InjectionProvider injectable : injectables) {
          if (hasTypeAssignableToInjectionPoint(injectable, testedClass) && !consumedInjectionProviders.contains(injectable)) {
             return injectable;
          }
@@ -151,19 +122,6 @@ public final class InjectionState
    private boolean hasTypeAssignableToInjectionPoint(@Nonnull InjectionProvider injectable, @Nonnull TestedClass testedClass) {
       Type declaredType = injectable.getDeclaredType();
       return isAssignableToInjectionPoint(declaredType, testedClass);
-   }
-
-   @Nonnull
-   List<MockedType> findInjectablesByType(@Nonnull TestedClass testedClass) {
-      List<MockedType> found = new ArrayList<>();
-
-      for (MockedType injectable : injectables) {
-         if (hasTypeAssignableToInjectionPoint(injectable, testedClass) && !consumedInjectionProviders.contains(injectable)) {
-            found.add(injectable);
-         }
-      }
-
-      return found;
    }
 
    @Nullable
@@ -196,7 +154,7 @@ public final class InjectionState
       GenericTypeReflection typeReflection = testedClass.reflection;
       MultiValuedProvider found = null;
 
-      for (MockedType injectable : injectables) {
+      for (InjectionProvider injectable : injectables) {
          Type injectableType = injectable.getDeclaredType();
          Type elementTypeOfIterable = getElementTypeIfIterable(injectableType);
 
@@ -218,9 +176,9 @@ public final class InjectionState
 
    @Nullable
    private InjectionProvider findInjectableByTypeAndOptionallyName(@Nonnull String nameOfInjectionPoint, @Nonnull TestedClass testedClass) {
-      MockedType foundInjectable = null;
+      InjectionProvider foundInjectable = null;
 
-      for (MockedType injectable : injectables) {
+      for (InjectionProvider injectable : injectables) {
          if (hasTypeAssignableToInjectionPoint(injectable, testedClass)) {
             if (nameOfInjectionPoint.equals(injectable.getName())) {
                return injectable;
@@ -236,8 +194,8 @@ public final class InjectionState
    }
 
    @Nullable
-   public MockedType findInjectableByTypeAndName(@Nonnull String nameOfInjectionPoint, @Nonnull TestedClass testedClass) {
-      for (MockedType injectable : injectables) {
+   public InjectionProvider findInjectableByTypeAndName(@Nonnull String nameOfInjectionPoint, @Nonnull TestedClass testedClass) {
+      for (InjectionProvider injectable : injectables) {
          if (hasTypeAssignableToInjectionPoint(injectable, testedClass) && nameOfInjectionPoint.equals(injectable.getName())) {
             return injectable;
          }

@@ -14,20 +14,13 @@ import mockit.coverage.*;
 import mockit.internal.*;
 import mockit.internal.expectations.transformation.*;
 import mockit.internal.state.*;
-import mockit.internal.util.*;
 import static mockit.internal.startup.ClassLoadingBridgeFields.createSyntheticFieldsInJREClassToHoldClassLoadingBridges;
 
 /**
  * This is the "agent class" that initializes the JMockit "Java agent". It is not intended for use in client code.
- * <p/>
- * There are two possible initialization scenarios:
- * <ol>
- *    <li>Execution with <tt>-javaagent:jmockit-1-x.jar</tt>.</li>
- *    <li>Execution without <tt>-javaagent</tt>, by self-attaching with the Attach API.</li>
- * </ol>
+ * Instead, the JVM needs to be initialized with <tt>-javaagent:&lt;properPathTo>/jmockit-1-x.jar</tt>.
  *
  * @see #premain(String, Instrumentation)
- * @see #agentmain(String, Instrumentation)
  */
 public final class Startup
 {
@@ -61,11 +54,11 @@ public final class Startup
       inst.addTransformer(new ExpectationsTransformer());
    }
 
-   private static void applyStartupFakes(@Nonnull Instrumentation instr) {
+   private static void applyStartupFakes(@Nonnull Instrumentation inst) {
       initializing = true;
 
       try {
-         JMockitInitialization.initialize(instr);
+         JMockitInitialization.initialize(inst);
       }
       finally {
          initializing = false;
@@ -131,28 +124,8 @@ public final class Startup
    public static void verifyInitialization() {
       if (instrumentation == null) {
          throw new IllegalStateException(
-            "JMockit didn't get initialized; please check jmockit.jar precedes junit.jar in the classpath");
+            "JMockit didn't get initialized; please check the -javaagent JVM initialization parameter was used");
       }
-   }
-
-   public static boolean initializeIfPossible() {
-      if (instrumentation == null) {
-         try {
-            new AgentLoader().loadAgent(null);
-            createSyntheticFieldsInJREClassToHoldClassLoadingBridges(instrumentation);
-            initialize(instrumentation);
-            return true;
-         }
-         catch (IllegalStateException e) {
-            StackTrace.filterStackTrace(e);
-            e.printStackTrace();
-         }
-         catch (RuntimeException e) { e.printStackTrace(); }
-
-         return false;
-      }
-
-      return true;
    }
 
    @SuppressWarnings("ConstantConditions")

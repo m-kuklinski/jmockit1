@@ -6,6 +6,8 @@ package mockit.internal.startup;
 
 import java.io.*;
 import java.lang.instrument.*;
+import java.lang.reflect.Field;
+import java.util.Set;
 import javax.annotation.*;
 
 import mockit.coverage.*;
@@ -23,7 +25,7 @@ import static mockit.internal.startup.ClassLoadingBridgeFields.createSyntheticFi
 public final class Startup
 {
    public static boolean initializing;
-   @Nullable private static Instrumentation instrumentation;
+   @Nullable private static volatile Instrumentation instrumentation;
 
    private Startup() {}
 
@@ -50,7 +52,7 @@ public final class Startup
          try {
             final ClassLoader clsLoader = thread.getContextClassLoader();
             final Class<?> cls = (clsLoader == null) ? null : clsLoader.loadClass(Startup.class.getName());
-            final Field instField = cls.getDeclaredField(instrumentationFieldName);
+            final Field instField = cls.getDeclaredField("instrumentation");
             if (instField != null) {
                instField.setAccessible(true);
                instField.set(null, inst);
